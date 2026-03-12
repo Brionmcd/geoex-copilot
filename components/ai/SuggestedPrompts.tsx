@@ -291,7 +291,7 @@ export function SuggestedPrompts({
       {expanded && (
         <div className="mx-auto max-w-4xl rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
           {/* Category tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-stone-100 px-3 py-2 scrollbar-thin">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-stone-100 px-3 py-2 pb-2.5 scrollbar-thin">
             {workflowCategories.map((cat) => {
               const Icon = cat.icon;
               const isActive = activeCategory === cat.id;
