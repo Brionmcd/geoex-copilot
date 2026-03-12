@@ -4,7 +4,8 @@ import { SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { toolDefinitions } from "@/lib/ai/tools";
 import { handleToolCall } from "@/lib/ai/tool-handlers";
 
-// Allow up to 60s for tool-use loops with multiple Claude API calls
+// Edge runtime supports long-lived streaming connections (no 10s hobby timeout)
+export const runtime = "edge";
 export const maxDuration = 60;
 
 const MAX_TOOL_ITERATIONS = 10;
