@@ -145,10 +145,15 @@ export async function POST(request: NextRequest) {
       }
       await writer.write(sseEncode({ type: "done" }));
       await writer.close();
-    } catch (error) {
-      console.error("Chat API error:", error);
+    } catch (error: any) {
+      console.error("Chat API error:", error?.message || error);
+      const errorMsg = error?.status === 401
+        ? "API key is invalid or expired"
+        : error?.status === 429
+        ? "Rate limited — please wait a moment and try again"
+        : error?.message || "An unexpected error occurred";
       await writer.write(
-        sseEncode({ type: "error", message: "An error occurred" })
+        sseEncode({ type: "error", message: errorMsg })
       );
       await writer.close();
     }

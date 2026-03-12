@@ -142,8 +142,7 @@ export default function Home() {
                     m.id === assistantId
                       ? {
                           ...m,
-                          content:
-                            "I encountered an error. Please try again.",
+                          content: `⚠️ ${data.message || "I encountered an error. Please try again."}`,
                         }
                       : m
                   )
