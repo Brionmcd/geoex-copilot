@@ -2,14 +2,17 @@
 
 import { useState, useCallback, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import { Header } from "@/components/layout/Header";
+import { Header, type ActiveView } from "@/components/layout/Header";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { PromptBar } from "@/components/ai/PromptBar";
 import { SuggestedPrompts } from "@/components/ai/SuggestedPrompts";
 import { ResponseThread } from "@/components/ai/ResponseThread";
 import { PinnedItems } from "@/components/ai/PinnedItems";
+import { WorkflowLibrary } from "@/components/workflow/WorkflowLibrary";
+import { WorkflowProgress, type WorkflowProgressState } from "@/components/workflow/WorkflowProgress";
+import { findWorkflowByPrompt } from "@/lib/data/workflows";
 import { notifications as seedNotifications } from "@/lib/data/seed-notifications";
-import type { AppUser, ChatMessage, Notification } from "@/lib/data/types";
+import type { AppUser, ChatMessage, Notification, WorkflowDefinition } from "@/lib/data/types";
 import { generateId } from "@/lib/utils";
 
 const DEMO_USERS: AppUser[] = [
@@ -55,9 +58,63 @@ export default function Home() {
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [notifications, setNotifications] =
     useState<Notification[]>(seedNotifications);
+  const [activeView, setActiveView] = useState<ActiveView>("chat");
   const threadRef = useRef<HTMLDivElement>(null);
 
+  // Workflow progress tracking
+  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgressState | null>(null);
+  const activeWorkflowRef = useRef<WorkflowDefinition | null>(null);
+  const completedStepsRef = useRef<Set<string>>(new Set());
+
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Match SSE toolNames to workflow steps and advance progress
+  const advanceWorkflowProgress = useCallback((toolNames: string[]) => {
+    const workflow = activeWorkflowRef.current;
+    if (!workflow) return;
+
+    let latestMatchedIdx = -1;
+    for (const toolName of toolNames) {
+      const idx = workflow.steps.findIndex((s) => s.toolName === toolName);
+      if (idx > latestMatchedIdx) latestMatchedIdx = idx;
+    }
+
+    if (latestMatchedIdx >= 0) {
+      // Mark all steps before the current one as completed
+      for (let i = 0; i < latestMatchedIdx; i++) {
+        completedStepsRef.current.add(workflow.steps[i].id);
+      }
+      const currentStepId = workflow.steps[latestMatchedIdx].id;
+
+      setWorkflowProgress({
+        workflow,
+        completedStepIds: Array.from(completedStepsRef.current),
+        currentStepId,
+        isComplete: false,
+      });
+    }
+  }, []);
+
+  const completeWorkflowProgress = useCallback(() => {
+    const workflow = activeWorkflowRef.current;
+    if (!workflow) return;
+
+    // Mark all steps as completed
+    const allStepIds = workflow.steps.map((s) => s.id);
+
+    setWorkflowProgress({
+      workflow,
+      completedStepIds: allStepIds,
+      currentStepId: null,
+      isComplete: true,
+    });
+
+    // Clear the active workflow ref after a delay
+    setTimeout(() => {
+      activeWorkflowRef.current = null;
+      completedStepsRef.current = new Set();
+    }, 1000);
+  }, []);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -74,6 +131,21 @@ export default function Home() {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
       setStreamStatus("");
+
+      // Check if this prompt matches a workflow for progress tracking
+      if (!activeWorkflowRef.current) {
+        const matchedWorkflow = findWorkflowByPrompt(content.trim());
+        if (matchedWorkflow) {
+          activeWorkflowRef.current = matchedWorkflow;
+          completedStepsRef.current = new Set();
+          setWorkflowProgress({
+            workflow: matchedWorkflow,
+            completedStepIds: [],
+            currentStepId: matchedWorkflow.steps[0]?.id || null,
+            isComplete: false,
+          });
+        }
+      }
 
       // Create a placeholder assistant message for streaming
       const assistantId = generateId();
@@ -125,6 +197,10 @@ export default function Home() {
 
               if (data.type === "status") {
                 setStreamStatus(data.message);
+                // Advance workflow progress if toolNames present
+                if (data.toolNames && Array.isArray(data.toolNames)) {
+                  advanceWorkflowProgress(data.toolNames);
+                }
               } else if (data.type === "delta") {
                 setStreamStatus("");
                 setMessages((prev) =>
@@ -135,7 +211,7 @@ export default function Home() {
                   )
                 );
               } else if (data.type === "done") {
-                // Streaming complete
+                completeWorkflowProgress();
               } else if (data.type === "error") {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -160,7 +236,7 @@ export default function Home() {
               ? {
                   ...m,
                   content:
-                    "I apologize, but I encountered an error processing your request. Please try again.",
+                    "⚠️ Connection error.",
                 }
               : m
           )
@@ -171,7 +247,29 @@ export default function Home() {
         setStreamStatus("");
       }
     },
-    [messages, isLoading, currentUser.role]
+    [messages, isLoading, currentUser.role, advanceWorkflowProgress, completeWorkflowProgress]
+  );
+
+  const handleRunWorkflow = useCallback(
+    (workflow: WorkflowDefinition) => {
+      // Set up progress tracking
+      activeWorkflowRef.current = workflow;
+      completedStepsRef.current = new Set();
+      setWorkflowProgress({
+        workflow,
+        completedStepIds: [],
+        currentStepId: workflow.steps[0]?.id || null,
+        isComplete: false,
+      });
+
+      // Switch to chat view and send the prompt
+      setActiveView("chat");
+      // Small delay to let view switch render
+      setTimeout(() => {
+        sendMessage(workflow.prompt);
+      }, 100);
+    },
+    [sendMessage]
   );
 
   const handlePin = useCallback((messageId: string) => {
@@ -182,7 +280,6 @@ export default function Home() {
 
   const handleEntityClick = useCallback(
     (type: string, id: string) => {
-      // When an entity is clicked in a response, trigger a follow-up query
       const queries: Record<string, string> = {
         trip: `Show me full details for trip ${id}`,
         contact: `Tell me about ${id}`,
@@ -197,11 +294,9 @@ export default function Home() {
   const handleDrillDown = useCallback(
     (selectedText: string, context: string) => {
       if (selectedText) {
-        // User selected specific text — ask about it with context
         const query = `Regarding this from your previous response: "${selectedText}"\n\nCan you go deeper on this? Provide more detail, related data, and any actions I should consider.`;
         sendMessage(query);
       } else if (context) {
-        // Whole-response drill-down (from the message footer button)
         const truncated = context.length > 200 ? context.slice(0, 200) + "..." : context;
         const query = `Based on your last response, what are the key action items and what should I focus on first? Here's a summary for context: "${truncated}"`;
         sendMessage(query);
@@ -221,7 +316,6 @@ export default function Home() {
         savedAt: new Date().toISOString(),
       });
       localStorage.setItem(SNIPPETS_KEY, JSON.stringify(existing));
-      // Brief visual feedback could be added here
     } catch {
       // Silently fail on localStorage issues
     }
@@ -242,6 +336,7 @@ export default function Home() {
   const handleNotificationAction = useCallback(
     (query: string) => {
       setNotificationPanelOpen(false);
+      setActiveView("chat");
       sendMessage(query);
     },
     [sendMessage]
@@ -257,55 +352,71 @@ export default function Home() {
         onUserChange={setCurrentUser}
         notificationCount={unreadCount}
         onNotificationClick={() => setNotificationPanelOpen(true)}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
 
-      {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Pinned items sidebar */}
-        {pinnedMessages.length > 0 && (
-          <PinnedItems
-            messages={pinnedMessages}
-            onSelect={handlePinnedSelect}
-          />
-        )}
-
-        {/* Response thread + prompt area */}
-        <div className="flex flex-1 flex-col">
-          {/* Scrollable thread */}
-          <div ref={threadRef} className="flex-1 overflow-y-auto">
-            <ResponseThread
-              messages={messages}
-              onPin={handlePin}
-              onEntityClick={handleEntityClick}
-              onDrillDown={handleDrillDown}
-              onSaveSnippet={handleSaveSnippet}
+      {/* Main content area — switches between chat and library */}
+      {activeView === "chat" ? (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Pinned items sidebar */}
+          {pinnedMessages.length > 0 && (
+            <PinnedItems
+              messages={pinnedMessages}
+              onSelect={handlePinnedSelect}
             />
-          </div>
-
-          {/* Streaming status indicator */}
-          {isLoading && streamStatus && (
-            <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-500">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>{streamStatus}</span>
-            </div>
           )}
 
-          {/* Bottom prompt area */}
-          <div className="border-t border-stone-200 bg-white px-4 pb-3 pt-3">
-            <div className="mb-2">
-              <SuggestedPrompts
-                userRole={currentUser.role}
-                onPromptClick={sendMessage}
+          {/* Response thread + prompt area */}
+          <div className="flex flex-1 flex-col">
+            {/* Scrollable thread */}
+            <div ref={threadRef} className="flex-1 overflow-y-auto">
+              <ResponseThread
+                messages={messages}
+                onPin={handlePin}
+                onEntityClick={handleEntityClick}
+                onDrillDown={handleDrillDown}
+                onSaveSnippet={handleSaveSnippet}
               />
             </div>
-            <PromptBar
-              onSend={sendMessage}
-              disabled={isLoading}
-              userRole={currentUser.role}
-            />
+
+            {/* Workflow progress + streaming status */}
+            {isLoading && workflowProgress && !workflowProgress.isComplete && (
+              <div className="px-4 pt-2">
+                <div className="max-w-4xl mx-auto">
+                  <WorkflowProgress progress={workflowProgress} />
+                </div>
+              </div>
+            )}
+
+            {isLoading && streamStatus && !workflowProgress && (
+              <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-500">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>{streamStatus}</span>
+              </div>
+            )}
+
+            {/* Bottom prompt area */}
+            <div className="border-t border-stone-200 bg-white px-4 pb-3 pt-3">
+              <div className="mb-2">
+                <SuggestedPrompts
+                  userRole={currentUser.role}
+                  onPromptClick={sendMessage}
+                  onOpenLibrary={() => setActiveView("library")}
+                  onRunWorkflow={handleRunWorkflow}
+                />
+              </div>
+              <PromptBar
+                onSend={sendMessage}
+                disabled={isLoading}
+                userRole={currentUser.role}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <WorkflowLibrary onRunWorkflow={handleRunWorkflow} />
+      )}
 
       {/* Notification panel */}
       <NotificationPanel
