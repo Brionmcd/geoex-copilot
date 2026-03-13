@@ -104,10 +104,11 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Handle tool calls
-        const toolNames = toolUseBlocks.map((t) => t.name).join(", ");
+        // Handle tool calls — send each tool name for progress tracking
+        const toolNamesList = toolUseBlocks.map((t) => t.name);
+        const toolNames = toolNamesList.join(", ");
         await writer.write(
-          sseEncode({ type: "status", message: `Running: ${toolNames}` })
+          sseEncode({ type: "status", message: `Running: ${toolNames}`, toolNames: toolNamesList })
         );
 
         // Append assistant response with tool_use blocks
