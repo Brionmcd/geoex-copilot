@@ -180,11 +180,19 @@ export interface ComponentBlock {
 
 export type SystemId =
   | "sugati"
+  | "pax_cal"
+  | "compass"
+  | "asana"
+  | "axus"
+  | "ripcord"
+  | "g3_visas"
+  | "feefo"
   | "smartsheet"
-  | "salesforce"
   | "email"
-  | "slack"
-  | "internal_db"
+  | "j_drive"
+  | "domo"
+  | "mailchimp"
+  | "google_ads"
   | "anthropic";
 
 export type OutputType =
