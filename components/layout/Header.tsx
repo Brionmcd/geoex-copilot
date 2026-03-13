@@ -1,18 +1,21 @@
 "use client";
 
 import React from "react";
-import { Bell, Globe } from "lucide-react";
+import { Bell, Globe, MessageSquare, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { UserSelector } from "@/components/layout/UserSelector";
 import type { AppUser } from "@/lib/data/types";
+
+export type ActiveView = "chat" | "library";
 
 interface HeaderProps {
   currentUser: AppUser;
   onUserChange: (user: AppUser) => void;
   notificationCount: number;
   onNotificationClick: () => void;
+  activeView: ActiveView;
+  onViewChange: (view: ActiveView) => void;
 }
 
 export function Header({
@@ -20,6 +23,8 @@ export function Header({
   onUserChange,
   notificationCount,
   onNotificationClick,
+  activeView,
+  onViewChange,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-stone-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 px-6">
@@ -36,6 +41,34 @@ export function Header({
             AI Platform
           </span>
         </div>
+      </div>
+
+      {/* Center: View toggle */}
+      <div className="flex items-center bg-stone-100 rounded-lg p-0.5">
+        <button
+          onClick={() => onViewChange("chat")}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+            activeView === "chat"
+              ? "bg-white text-stone-900 shadow-sm"
+              : "text-stone-500 hover:text-stone-700"
+          )}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          Copilot
+        </button>
+        <button
+          onClick={() => onViewChange("library")}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+            activeView === "library"
+              ? "bg-white text-stone-900 shadow-sm"
+              : "text-stone-500 hover:text-stone-700"
+          )}
+        >
+          <Library className="h-3.5 w-3.5" />
+          Workflow Library
+        </button>
       </div>
 
       {/* Right: User selector + notifications */}
