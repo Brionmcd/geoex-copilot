@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { Bell, Globe, MessageSquare, Library } from "lucide-react";
+import { Bell, Globe, MessageSquare, Library, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { UserSelector } from "@/components/layout/UserSelector";
 import type { AppUser } from "@/lib/data/types";
 
-export type ActiveView = "chat" | "library";
+export type ActiveView = "chat" | "library" | "group-ops";
 
 interface HeaderProps {
   currentUser: AppUser;
@@ -68,6 +68,18 @@ export function Header({
         >
           <Library className="h-3.5 w-3.5" />
           Workflow Library
+        </button>
+        <button
+          onClick={() => onViewChange("group-ops")}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+            activeView === "group-ops"
+              ? "bg-white text-stone-900 shadow-sm"
+              : "text-stone-500 hover:text-stone-700"
+          )}
+        >
+          <Users className="h-3.5 w-3.5" />
+          Group Ops
         </button>
       </div>
 
