@@ -10,7 +10,6 @@ import { ResponseThread } from "@/components/ai/ResponseThread";
 import { PinnedItems } from "@/components/ai/PinnedItems";
 import { WorkflowLibrary } from "@/components/workflow/WorkflowLibrary";
 import { WorkflowProgress, type WorkflowProgressState } from "@/components/workflow/WorkflowProgress";
-import { GroupOperationsModule } from "@/components/group-ops/GroupOperationsModule";
 import { findWorkflowByPrompt } from "@/lib/data/workflows";
 import { notifications as seedNotifications } from "@/lib/data/seed-notifications";
 import type { AppUser, ChatMessage, Notification, WorkflowDefinition } from "@/lib/data/types";
@@ -415,11 +414,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-      ) : activeView === "library" ? (
+      ) : (
         <WorkflowLibrary onRunWorkflow={handleRunWorkflow} />
-      ) : activeView === "group-ops" ? (
-        <GroupOperationsModule />
-      ) : null}
+      )}
 
       {/* Notification panel */}
       <NotificationPanel
