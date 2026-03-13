@@ -55,17 +55,27 @@
 
 /* Thin scrollbar for horizontal scroll areas */
 .scrollbar-thin::-webkit-scrollbar {
-  height: 3px;
+  height: 2px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #e7e5e4;
+  background: transparent;
   border-radius: 9999px;
+  transition: background 0.2s;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
   background: #d6d3d1;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Hidden scrollbar utility */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Firefox scrollbar support */
@@ -75,5 +85,8 @@
 }
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #e7e5e4 transparent;
+  scrollbar-color: transparent transparent;
+}
+.scrollbar-thin:hover {
+  scrollbar-color: #d6d3d1 transparent;
 }
