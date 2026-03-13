@@ -175,3 +175,62 @@ export interface ComponentBlock {
   component: string;
   [key: string]: unknown;
 }
+
+// === WORKFLOW LIBRARY TYPES ===
+
+export type SystemId =
+  | "sugati"
+  | "smartsheet"
+  | "salesforce"
+  | "email"
+  | "slack"
+  | "internal_db"
+  | "anthropic";
+
+export type OutputType =
+  | "table"
+  | "checklist"
+  | "chart"
+  | "status_card"
+  | "email_draft"
+  | "dashboard"
+  | "alert"
+  | "customer_profile"
+  | "narrative";
+
+export type WorkflowStatus = "automated" | "planned" | "in_review";
+export type WorkflowPriority = "critical" | "high" | "medium" | "low";
+
+export interface WorkflowStep {
+  id: string;
+  label: string;
+  description: string;
+  systemId?: SystemId;
+  toolName?: string;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  description: string;
+  categoryId: string;
+  systems: SystemId[];
+  outputTypes: OutputType[];
+  steps: WorkflowStep[];
+  status: WorkflowStatus;
+  priority: WorkflowPriority;
+  owner?: string;
+  notes?: string;
+  lastReviewedDate?: string;
+  prompt: string;
+  chipLabel: string;
+  isFeatured?: boolean;
+}
+
+export interface WorkflowCategory {
+  id: string;
+  label: string;
+  iconName: string;
+  color: string;
+  description?: string;
+}
